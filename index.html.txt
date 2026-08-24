@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <title>Routine Planner AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#0f172a; color:#e5e7eb; margin:0; padding:0; }
+    header { padding:16px; background:#111827; display:flex; justify-content:space-between; align-items:center; }
+    h1 { margin:0; font-size:20px; }
+    .container { padding:16px; max-width:1000px; margin:0 auto; }
+    select, input, button { padding:8px; margin:4px 0; border-radius:6px; border:1px solid #4b5563; background:#1f2937; color:#e5e7eb; }
+    button { cursor:pointer; }
+    .grid { display:grid; grid-template-columns:100px 1fr; gap:8px; margin-top:16px; }
+    .hour { padding:8px; background:#111827; border-radius:6px; text-align:right; font-size:12px; color:#9ca3af; }
+    .task { padding:8px; background:#1f2937; border-radius:6px; }
+    textarea { width:100%; min-height:60px; background:#030712; color:#e5e7eb; border-radius:6px; border:1px solid #4b5563; padding:8px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .card { background:#020617; border-radius:10px; padding:12px; margin-top:16px; border:1px solid #1f2937; }
+    .small { font-size:12px; color:#9ca3af; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Routine Planner</h1>
+    <div>Cont demo (local) 🧠</div>
+  </header>
+
+  <div class="container">
+    <div class="row">
+      <div>
+        <label>Zi:</label><br />
+        <select id="daySelect">
+          <option value="luni">Luni</option>
+          <option value="marti">Marți</option>
+          <option value="miercuri">Miercuri</option>
+          <option value="joi">Joi</option>
+          <option value="vineri">Vineri</option>
+          <option value="sambata">Sâmbătă</option>
+          <option value="duminica">Duminică</option>
+        </select>
+      </div>
+      <div>
+        <label>Ora:</label><br />
+        <input type="time" id="timeInput" />
+      </div>
+      <div style="flex:1;">
+        <label>Activitate:</label><br />
+        <input type="text" id="taskInput" placeholder="ex: flotări, masă, învățat" style="width:100%;" />
+      </div>
+      <div>
+        <button id="addTaskBtn">Adaugă</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div style="flex:1;">
+          <strong>Rutina pe zi</strong>
+          <div class="small">Vezi toate activitățile pentru ziua selectată.</div>
+        </div>
+        <button id="aiSuggestBtn">Sugestie AI (demo)</button>
+      </div>
+      <div id="tasksGrid" class="grid"></div>
+    </div>
+
+    <div class="card">
+      <strong>Recomandări AI (demo)</strong>
+      <div class="small">Simulat local, fără backend. Poți conecta ulterior la un API real.</div>
+      <textarea id="aiOutput" readonly></textarea>
+    </div>
+  </div>
+
+  <script>
+    const daySelect = document.getElementById('daySelect');
+    const timeInput = document.getElementById('timeInput');
+    const taskInput = document.getElementById('taskInput');
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    const tasksGrid = document.getElementById('tasksGrid');
+    const aiSuggestBtn = document.getElementById('aiSuggestBtn');
+    const aiOutput = document.getElementById('aiOutput');
+
+    const STORAGE_KEY = 'routine_planner_data';
+
+    function loadData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }
+
+    function saveData(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function getDayTasks(day) {
+      const data = loadData();
+      return data[day] || [];
+    }
+
+    function setDayTasks(day, tasks) {
+      const data = loadData();
+      data[day] = tasks;
+      saveData(data);
+    }
+
+    function renderTasks() {
+      const day = daySelect.value;
+      const tasks = getDayTasks(day).sort((a, b) => a.time.localeCompare(b.time));
+      tasksGrid.innerHTML = '';
+      if (tasks.length === 0) {
+        tasksGrid.innerHTML = '<div class="small">Nicio activitate pentru ziua asta încă.</div>';
+        return;
+      }
+      tasks.forEach((t, idx) => {
+        const hourDiv = document.createElement('div');
+        hourDiv.className = 'hour';
+        hourDiv.textContent = t.time;
+
+        const taskDiv = document.createElement('div');
+        taskDiv.className = 'task';
+        taskDiv.textContent = t.text;
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Șterge';
+        delBtn.style.marginTop = '4px';
+        delBtn.onclick = () => {
+          const current = getDayTasks(day);
+          current.splice(idx, 1);
+          setDayTasks(day, current);
+          renderTasks();
+        };
+
+        taskDiv.appendChild(document.createElement('br'));
+        taskDiv.appendChild(delBtn);
+
+        tasksGrid.appendChild(hourDiv);
+        tasksGrid.appendChild(taskDiv);
+      });
+    }
+
+    addTaskBtn.onclick = () => {
+      const day = daySelect.value;
+      const time = timeInput.value;
+      const text = taskInput.value.trim();
+      if (!time || !text) {
+        alert('Pune și ora și activitatea, frt 😄');
+        return;
+      }
+      const tasks = getDayTasks(day);
+      tasks.push({ time, text });
+      setDayTasks(day, tasks);
+      timeInput.value = '';
+      taskInput.value = '';
+      renderTasks();
+    };
+
+    daySelect.onchange = renderTasks;
+
+    aiSuggestBtn.onclick = () => {
+      const day = daySelect.value;
+      const tasks = getDayTasks(day).sort((a, b) => a.time.localeCompare(b.time));
+      if (tasks.length === 0) {
+        aiOutput.value = 'Nu ai activități în ziua asta. Încearcă să adaugi: sport dimineața, învățat la prânz, relaxare seara.';
+        return;
+      }
+      let msg = `Analiză rutină pentru ${day}:\n\n`;
+      msg += `• Ai ${tasks.length} activități.\n`;
+      const hasSport = tasks.some(t => /flotari|sport|sala|alergare/i.test(t.text));
+      const hasStudy = tasks.some(t => /invata|scoala|curs/i.test(t.text));
+      const hasBreak = tasks.some(t => /pauza|relax/i.test(t.text));
+
+      if (!hasSport) msg += '- Nu văd sport. Adaugă măcar 15–20 minute de mișcare.\n';
+      if (!hasStudy) msg += '- Nu văd timp de învățat. Pune un bloc de 1–2 ore.\n';
+      if (!hasBreak) msg += '- Nu văd pauze. Pune pauze scurte între activități.\n';
+
+      msg += '\nSugestie: încearcă să grupezi activitățile importante dimineața și să lași seara pentru relaxare.';
+      aiOutput.value = msg;
+    };
+
+    renderTasks();
+  </script>
+</body>
+</html>
